@@ -36,6 +36,7 @@ jobs:
         with:
           role-to-assume: arn:aws:iam::576174294043:role/FoodHubGitHubActionsRole
           aws-region: ap-south-1
+          audience: sts.amazonaws.com
 
       - name: Deploy files to S3
         run: aws s3 sync dist/ s3://foodhub-karthik-2026-0927 --delete
