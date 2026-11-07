@@ -1,6 +1,6 @@
 import { useState } from "react"
 
-function Login({ onLogin }) {
+function Login({ onLogin, onCancel }) {
   const [isSignup, setIsSignup] = useState(false)
 
   const [formData, setFormData] = useState({
@@ -34,6 +34,16 @@ function Login({ onLogin }) {
     <section className="flex min-h-[calc(100vh-73px)] items-center justify-center bg-orange-50 px-6 py-12">
       <div className="w-full max-w-md rounded-3xl bg-white p-8 shadow-xl">
 
+        {onCancel && (
+          <button
+            type="button"
+            onClick={onCancel}
+            className="mb-4 text-sm font-medium text-orange-600 hover:text-orange-700"
+          >
+            ← Back to Home
+          </button>
+        )}
+
         <div className="mb-8 text-center">
           <div className="text-5xl">🍽️</div>
 
@@ -45,6 +55,10 @@ function Login({ onLogin }) {
             {isSignup
               ? "Create your FoodHub account"
               : "Login to continue ordering"}
+          </p>
+
+          <p className="mt-1 text-xs text-amber-600">
+            (Demo Authentication Interface)
           </p>
         </div>
 
@@ -114,6 +128,7 @@ function Login({ onLogin }) {
           </p>
 
           <button
+            type="button"
             onClick={() => setIsSignup(!isSignup)}
             className="mt-2 font-semibold text-orange-600 hover:text-orange-700"
           >

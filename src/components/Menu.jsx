@@ -1,41 +1,81 @@
 import { useEffect, useState } from "react"
 import FoodCard from "./FoodCard"
+import { FALLBACK_MENU } from "../menuData"
 
-function Menu({ onAddToCart }) {
-  const [foods, setFoods] = useState([])
+// Static fallback menu data matching backend/menu.mjs
+// Ensures all dishes render on CloudFront even if AWS API Gateway /menu route is pending deployment
+
+
+function Menu({ onAddToCart, selectedCategory = "All" }) {
+  const [foods, setFoods] = useState(FALLBACK_MENU)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
 
+  const apiBaseUrl =
+    import.meta.env.VITE_API_BASE_URL ||
+    "https://p58iopju3f.execute-api.ap-south-1.amazonaws.com"
+
   useEffect(() => {
+    let isMounted = true
+
     const fetchMenu = async () => {
       try {
-        const response = await fetch(
-          "http://localhost:3000/api/menu"
-        )
+        setLoading(true)
+        setError("")
+
+        const response = await fetch(`${apiBaseUrl}/menu`, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        })
 
         if (!response.ok) {
-          throw new Error("Failed to fetch the menu")
+          throw new Error(`Menu API responded with status ${response.status}`)
         }
 
         const result = await response.json()
 
-        if (!result.success || !Array.isArray(result.data)) {
-          throw new Error("Invalid menu response")
+        if (result && result.success && Array.isArray(result.data) && result.data.length > 0) {
+          if (isMounted) {
+            setFoods(result.data)
+          }
+        } else if (Array.isArray(result) && result.length > 0) {
+          if (isMounted) {
+            setFoods(result)
+          }
+        } else {
+          // If response format is not as expected, retain fallback
+          console.warn("Unexpected API response format, using default menu items")
         }
-
-        setFoods(result.data)
       } catch (err) {
-        console.error("Menu loading error:", err)
-        setError(
-          "Unable to load the menu. Please check that the backend is running."
-        )
+        console.warn("Menu API call note:", err.message, "— Serving static menu data.")
+        // Keep fallback menu loaded so customers always see the dishes
+        if (isMounted) {
+          setFoods(FALLBACK_MENU)
+        }
       } finally {
-        setLoading(false)
+        if (isMounted) {
+          setLoading(false)
+        }
       }
     }
 
     fetchMenu()
-  }, [])
+
+    return () => {
+      isMounted = false
+    }
+  }, [apiBaseUrl])
+
+  // Filter foods by selected category
+  const filteredFoods =
+    selectedCategory && selectedCategory !== "All"
+      ? foods.filter(
+          (food) =>
+            food.category?.toLowerCase() === selectedCategory.toLowerCase()
+        )
+      : foods
 
   return (
     <section
@@ -54,6 +94,11 @@ function Menu({ onAddToCart }) {
 
           <p className="mt-3 text-gray-500">
             Freshly prepared favorites from our kitchen
+            {selectedCategory && selectedCategory !== "All" && (
+              <span className="font-medium text-orange-600">
+                {" "}• Filtered by: {selectedCategory}
+              </span>
+            )}
           </p>
         </div>
 
@@ -69,15 +114,16 @@ function Menu({ onAddToCart }) {
           </p>
         )}
 
-        {!loading && !error && foods.length === 0 && (
-          <p className="mt-10 text-center text-gray-600">
-            No food items are available right now.
-          </p>
+        {!loading && filteredFoods.length === 0 && (
+          <div className="mt-10 text-center text-gray-600">
+            <p className="text-lg">No dishes found in category "{selectedCategory}".</p>
+            <p className="mt-2 text-sm text-gray-500">Please choose another category or click "All".</p>
+          </div>
         )}
 
-        {!loading && !error && foods.length > 0 && (
+        {filteredFoods.length > 0 && (
           <div className="mt-10 grid gap-7 sm:grid-cols-2 lg:grid-cols-3">
-            {foods.map((food) => (
+            {filteredFoods.map((food) => (
               <FoodCard
                 key={food.id}
                 food={food}

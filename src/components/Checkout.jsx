@@ -68,7 +68,7 @@ function Checkout({
 
     try {
       const response = await fetch(
-        "https://p58iopju3f.execute-api.ap-south-1.amazonaws.com/orders",
+        `${import.meta.env.VITE_API_BASE_URL || "https://p58iopju3f.execute-api.ap-south-1.amazonaws.com"}/orders`,
         {
           method: "POST",
           headers: {

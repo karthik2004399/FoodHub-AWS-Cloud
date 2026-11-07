@@ -13,6 +13,7 @@ function App() {
   const [showLogin, setShowLogin] = useState(false)
   const [showCart, setShowCart] = useState(false)
   const [showCheckout, setShowCheckout] = useState(false)
+  const [selectedCategory, setSelectedCategory] = useState("All")
 
   const handleAddToCart = (food) => {
     setCart((currentCart) => {
@@ -67,20 +68,17 @@ function App() {
     setShowLogin(false)
   }
 
-  const handlePlaceOrder = (order) => {
-    const orderId = `ORD-${Date.now()}`
-
-    console.log("Order:", {
-      ...order,
-      orderId,
-      status: "Placed",
-      createdAt: new Date().toISOString(),
-    })
-
-    alert(`Order placed successfully!\nOrder ID: ${orderId}`)
-
+  // Receives confirmed order directly from Checkout.jsx (after AWS Lambda/DynamoDB response)
+  const handlePlaceOrder = (confirmedOrder) => {
+    console.log("Order confirmed and saved to cloud:", confirmedOrder)
     setCart([])
     setShowCheckout(false)
+  }
+
+  const handleGoHome = () => {
+    setShowLogin(false)
+    setShowCheckout(false)
+    setSelectedCategory("All")
   }
 
   const cartCount = cart.reduce(
@@ -96,10 +94,14 @@ function App() {
         cartCount={cartCount}
         onLoginClick={() => setShowLogin(true)}
         onCartClick={() => setShowCart(true)}
+        onHomeClick={handleGoHome}
       />
 
       {showLogin ? (
-        <Login onLogin={handleLogin} />
+        <Login
+          onLogin={handleLogin}
+          onCancel={() => setShowLogin(false)}
+        />
       ) : showCheckout ? (
         <Checkout
           cart={cart}
@@ -110,8 +112,14 @@ function App() {
       ) : (
         <>
           <Hero />
-          <Categories />
-          <Menu onAddToCart={handleAddToCart} />
+          <Categories
+            selectedCategory={selectedCategory}
+            onSelectCategory={setSelectedCategory}
+          />
+          <Menu
+            onAddToCart={handleAddToCart}
+            selectedCategory={selectedCategory}
+          />
         </>
       )}
 

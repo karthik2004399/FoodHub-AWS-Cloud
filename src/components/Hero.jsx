@@ -34,6 +34,13 @@ function Hero() {
     )
   }
 
+  const scrollToMenu = () => {
+    const menuSection = document.getElementById("menu")
+    if (menuSection) {
+      menuSection.scrollIntoView({ behavior: "smooth" })
+    }
+  }
+
   return (
     <section className="bg-orange-50 px-6 py-16">
       <div className="mx-auto grid max-w-7xl items-center gap-12 md:grid-cols-2">
@@ -57,11 +64,19 @@ function Hero() {
           </p>
 
           <div className="mt-8 flex gap-4">
-            <button className="rounded-full bg-orange-600 px-6 py-3 font-semibold text-white shadow-lg hover:bg-orange-700">
+            <button
+              type="button"
+              onClick={scrollToMenu}
+              className="rounded-full bg-orange-600 px-6 py-3 font-semibold text-white shadow-lg hover:bg-orange-700"
+            >
               Explore Menu
             </button>
 
-            <button className="rounded-full border border-orange-600 px-6 py-3 font-semibold text-orange-600 hover:bg-orange-100">
+            <button
+              type="button"
+              onClick={scrollToMenu}
+              className="rounded-full border border-orange-600 px-6 py-3 font-semibold text-orange-600 hover:bg-orange-100"
+            >
               Order Now
             </button>
           </div>
@@ -76,6 +91,7 @@ function Hero() {
           />
 
           <button
+            type="button"
             onClick={previousImage}
             className="absolute left-4 top-1/2 -translate-y-1/2 rounded-full bg-white/90 px-4 py-2 text-xl shadow-lg hover:bg-white"
           >
@@ -83,6 +99,7 @@ function Hero() {
           </button>
 
           <button
+            type="button"
             onClick={nextImage}
             className="absolute right-4 top-1/2 -translate-y-1/2 rounded-full bg-white/90 px-4 py-2 text-xl shadow-lg hover:bg-white"
           >
@@ -103,6 +120,7 @@ function Hero() {
             {foodImages.map((_, index) => (
               <button
                 key={index}
+                type="button"
                 onClick={() => setCurrentImage(index)}
                 className={`h-3 w-3 rounded-full ${
                   currentImage === index

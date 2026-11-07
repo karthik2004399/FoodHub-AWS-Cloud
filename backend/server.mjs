@@ -5,10 +5,10 @@ import { handler as orderHandler } from "./order.mjs";
 const PORT = 3000;
 
 const server = createServer(async (req, res) => {
-  // Allow requests from the local React development server
-  res.setHeader("Access-Control-Allow-Origin", "http://localhost:5173");
+  // Allow requests from Vite dev server and CloudFront
+  res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
 
   if (req.method === "OPTIONS") {
     res.writeHead(204);
@@ -16,29 +16,38 @@ const server = createServer(async (req, res) => {
     return;
   }
 
-  try {
-    if (req.method === "GET" && req.url === "/api/menu") {
-      const result = await menuHandler({});
+  const url = req.url?.split("?")[0];
 
-      res.writeHead(result.statusCode, result.headers);
+  try {
+    // Menu endpoint (supports both /menu and /api/menu)
+    if (req.method === "GET" && (url === "/menu" || url === "/api/menu")) {
+      const result = await menuHandler({ httpMethod: "GET" });
+
+      res.writeHead(result.statusCode, {
+        ...result.headers,
+        "Content-Type": "application/json",
+      });
       res.end(result.body);
       return;
     }
 
-    if (req.method === "POST" && req.url === "/api/orders") {
+    // Orders endpoint (supports both /orders and /api/orders)
+    if (req.method === "POST" && (url === "/orders" || url === "/api/orders")) {
       let body = "";
 
       for await (const chunk of req) {
         body += chunk;
       }
 
-      const result = await orderHandler({ body });
+      const result = await orderHandler({
+        httpMethod: "POST",
+        body,
+      });
 
       res.writeHead(result.statusCode, {
         ...result.headers,
         "Content-Type": "application/json",
       });
-
       res.end(result.body);
       return;
     }
@@ -47,10 +56,12 @@ const server = createServer(async (req, res) => {
       "Content-Type": "application/json",
     });
 
-    res.end(JSON.stringify({
-      success: false,
-      message: "Endpoint not found",
-    }));
+    res.end(
+      JSON.stringify({
+        success: false,
+        message: `Endpoint ${req.method} ${url} not found`,
+      })
+    );
   } catch (error) {
     console.error("Server error:", error);
 
@@ -58,13 +69,17 @@ const server = createServer(async (req, res) => {
       "Content-Type": "application/json",
     });
 
-    res.end(JSON.stringify({
-      success: false,
-      message: "Internal server error",
-    }));
+    res.end(
+      JSON.stringify({
+        success: false,
+        message: "Internal server error",
+      })
+    );
   }
 });
 
 server.listen(PORT, () => {
-  console.log(`FoodHub backend running at http://localhost:${PORT}`);
+  console.log(`FoodHub local test backend running at http://localhost:${PORT}`);
+  console.log(`- GET  http://localhost:${PORT}/menu`);
+  console.log(`- POST http://localhost:${PORT}/orders`);
 });
