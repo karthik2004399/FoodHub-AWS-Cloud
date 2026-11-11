@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
+    "test": "node test/backend.test.mjs && node test/orderSummary.test.mjs && node test/myOrders.test.mjs && node test/adminForgotPassword.test.mjs && node test/authLoginValidation.test.mjs",
     "preview": "vite preview"
   },
   "dependencies": {

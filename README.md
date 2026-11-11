@@ -1,1 +1,234 @@
-﻿# FoodHub â€“ Cloud-Based Food Ordering Application[![AWS Serverless](https://img.shields.io/badge/AWS-Serverless-orange.svg?logo=amazon-aws)](https://aws.amazon.com/)[![React 19](https://img.shields.io/badge/React-19.2-61DAFB.svg?logo=react)](https://react.dev/)[![Vite](https://img.shields.io/badge/Bundler-Vite-646CFF.svg?logo=vite)](https://vitejs.dev/)[![Tailwind CSS](https://img.shields.io/badge/Styling-Tailwind_CSS-38B2AC.svg?logo=tailwind-css)](https://tailwindcss.com/)[![CI/CD](https://img.shields.io/badge/CI%2FCD-GitHub_Actions_OIDC-2088FF.svg?logo=github-actions)](https://github.com/features/actions)FoodHub is a cloud-native, serverless food ordering application engineered with **React.js**, **Amazon CloudFront**, **Amazon S3**, **Amazon API Gateway**, **AWS Lambda**, and **Amazon DynamoDB**. The application demonstrates modern Cloud Architecture and DevOps practices, including automated infrastructure deployment, OpenID Connect (OIDC) identity federation, and decoupled frontend-backend design.---## 1. Project Overview & Objectives### PurposeFoodHub provides a seamless online food ordering interface for customers to browse restaurant menus, filter dishes by category, manage cart items with real-time price calculations, and submit delivery orders. Behind the scenes, the application utilizes enterprise cloud design patterns to ensure high availability, micro-billing elasticity, low latency, and zero server maintenance overhead.### Key Engineering Objectives- **Global Low-Latency Content Delivery:** Serve static assets via CloudFront Edge Locations with SSL termination and S3 origin storage.- **Microservices & Serverless Backend:** Process orders asynchronously through serverless AWS Lambda functions invoked via API Gateway.- **Authoritative Server-Side Validation:** Enforce server-controlled pricing and strict payload validation to prevent client-side price tampering.- **NoSQL Data Persistence:** Store finalized customer orders in Amazon DynamoDB with automatic indexing and high throughput.- **Enterprise-Grade CI/CD Automation:** Implement continuous integration and deployment with GitHub Actions using passwordless OpenID Connect (OIDC) federation.---## 2. Cloud Architecture Diagram```mermaidflowchart TD    User["End User / Web Browser"] -->|HTTPS (Global CDN)| CF["Amazon CloudFront (Edge Caching)"]    CF -->|Origin Fetch| S3["Amazon S3 Static Bucket (Private)"]    User -->|POST /orders\nGET /menu| APIGW["Amazon API Gateway (REST API)"]    APIGW -->|Proxy Integration| L1["AWS Lambda (FoodHubGetMenu)"]    APIGW -->|Proxy Integration| L2["AWS Lambda (FoodHubCreateOrder)"]    L2 -->|PutItem| DDB[("Amazon DynamoDB (FoodHubOrders)")]    L1 -.->|Logs & Metrics| CW["Amazon CloudWatch"]    L2 -.->|Logs & Metrics| CW    subgraph CI_CD ["Automated CI/CD Pipeline"]        Dev["Developer Push to main"] --> GHA["GitHub Actions Runner"]        GHA -->|OIDC Token Request| OIDC["GitHub OIDC Provider"]        OIDC -->|sts:AssumeRoleWithWebIdentity| IAM["AWS IAM (FoodHubGitHubActionsRole)"]        IAM -->|Temporary STS Tokens| GHA        GHA -->|aws s3 sync --delete| S3        GHA -->|aws cloudfront create-invalidation| CF    end```---## 3. Technology Stack| Layer | Technology / Service | Role in Architecture || :--- | :--- | :--- || **Frontend Framework** | React.js 19 | Component-based interactive UI state management || **Build Tooling** | Vite 8 + ES Modules | Sub-second HMR and production bundle optimization || **CSS Framework** | Tailwind CSS 3.4 | Utility-first responsive styling and typography || **CDN & Edge Cache** | Amazon CloudFront | Worldwide low-latency caching and HTTPS termination || **Object Storage** | Amazon S3 | Serverless hosting for production web artifacts (`dist/`) || **API Management** | Amazon API Gateway | Managed HTTP endpoint routing, rate limiting, and CORS || **Compute Engine** | AWS Lambda (Node.js) | Serverless event-driven business logic execution || **NoSQL Database** | Amazon DynamoDB | Low-latency key-value order persistence || **Security & Auth** | AWS IAM & GitHub OIDC | Least-privilege roles and keyless deployment tokens || **Observability** | Amazon CloudWatch | Real-time Lambda execution logs and performance metrics || **CI/CD** | GitHub Actions | Automated build, test, S3 sync, and CDN invalidation |---## 4. AWS Services Configuration & Resource Map- **AWS Deployment Region:** `ap-south-1` (Asia Pacific - Mumbai)- **S3 Hosting Bucket:** `foodhub-karthik-2026-0927`- **CloudFront Distribution ID:** `E19KJACSDBYGC5`- **CloudFront Live Domain:** [https://d2i0pdn8zaqggl.cloudfront.net](https://d2i0pdn8zaqggl.cloudfront.net)- **API Gateway Name:** `FoodHub-Order-API`- **API Gateway Endpoint:** `https://p58iopju3f.execute-api.ap-south-1.amazonaws.com`- **DynamoDB Table:** `FoodHubOrders` (Partition Key: `orderId` - String)- **Lambda Functions:**  - `FoodHubCreateOrder`: Order validation, total computation, and DynamoDB storage.  - `FoodHubGetMenu`: Static menu retrieval with CORS headers.- **IAM Roles:**  - `FoodHubCreateOrder-role-oze5rx3f`: Execution role for Lambda (CloudWatch + DynamoDB).  - `FoodHubGitHubActionsRole`: OIDC deployment role for GitHub Actions runner.---## 5. API Specifications### 1. `GET /menu`Retrieves the restaurant's menu catalog.- **Method:** `GET`- **URL:** `https://p58iopju3f.execute-api.ap-south-1.amazonaws.com/menu`- **Response Status:** `200 OK`- **Sample Response:**```json{  "success": true,  "message": "FoodHub menu retrieved successfully",  "count": 6,  "data": [    {      "id": 1,      "name": "Margherita Pizza",      "description": "Fresh tomato, mozzarella and basil.",      "price": 299,      "rating": 4.8,      "category": "Pizza",      "image": "https://images.unsplash.com/photo-1574071318508-1cdbab80d002?auto=format&fit=crop&w=800&q=80"    }  ]}```---### 2. `POST /orders`Validates customer delivery details and items, calculates the subtotal and fixed delivery charge (â‚¹40), writes the record to DynamoDB, and returns the confirmed order.- **Method:** `POST`- **URL:** `https://p58iopju3f.execute-api.ap-south-1.amazonaws.com/orders`- **Headers:** `Content-Type: application/json`- **Sample Request Body:**```json{  "customer": {    "name": "Karthik",    "phone": "9876543210",    "address": "Flat 402, Sunshine Apartments",    "city": "Hyderabad",    "pincode": "500001"  },  "items": [    { "id": 1, "quantity": 2 },    { "id": 2, "quantity": 1 }  ]}```- **Sample Response (`201 Created`):**```json{  "success": true,  "message": "FoodHub order processed successfully",  "order": {    "orderId": "ORD-1763489210452",    "customer": {      "name": "Karthik",      "phone": "9876543210",      "address": "Flat 402, Sunshine Apartments",      "city": "Hyderabad",      "pincode": "500001"    },    "items": [      { "id": 1, "quantity": 2, "price": 299 },      { "id": 2, "quantity": 1, "price": 199 }    ],    "subtotal": 797,    "deliveryFee": 40,    "total": 837,    "status": "Placed",    "createdAt": "2026-11-07T14:30:00.000Z"  }}```---## 6. Project Directory Structure```textcloud-restaurant-app/â”œâ”€â”€ .github/â”‚   â””â”€â”€ workflows/â”‚       â””â”€â”€ deploy.yml           # GitHub Actions CI/CD workflowâ”œâ”€â”€ backend/â”‚   â”œâ”€â”€ menu.mjs                 # FoodHubGetMenu Lambda handlerâ”‚   â”œâ”€â”€ order.mjs                # FoodHubCreateOrder Lambda handler (DynamoDB write)â”‚   â””â”€â”€ server.mjs               # Local Node.js test server (ports 3000)â”œâ”€â”€ src/â”‚   â”œâ”€â”€ assets/                  # SVG and image assetsâ”‚   â”œâ”€â”€ components/â”‚   â”‚   â”œâ”€â”€ Cart.jsx             # Sliding cart drawer with quantity managementâ”‚   â”‚   â”œâ”€â”€ Categories.jsx       # Interactive food category filter buttonsâ”‚   â”‚   â”œâ”€â”€ Checkout.jsx         # Delivery form & order submission to API Gatewayâ”‚   â”‚   â”œâ”€â”€ FoodCard.jsx         # Card component for individual dishesâ”‚   â”‚   â”œâ”€â”€ Hero.jsx             # Hero carousel with CTA navigation buttonsâ”‚   â”‚   â”œâ”€â”€ Login.jsx            # Demo customer login & registration interfaceâ”‚   â”‚   â”œâ”€â”€ Menu.jsx             # Menu catalog with resilient cloud fallbackâ”‚   â”‚   â””â”€â”€ navbar.jsx           # Sticky navigation bar with cart badgeâ”‚   â”œâ”€â”€ App.jsx                  # Top-level state coordinatorâ”‚   â”œâ”€â”€ index.css                # Tailwind CSS importsâ”‚   â””â”€â”€ main.jsx                 # React root mount pointâ”œâ”€â”€ .env.example                 # Environment variables blueprintâ”œâ”€â”€ package.json                 # Project dependencies and npm scriptsâ”œâ”€â”€ tailwind.config.js           # Tailwind theme configurationâ”œâ”€â”€ vite.config.js               # Vite build configurationâ””â”€â”€ README.md                    # Project documentation```---## 7. Local Installation & Development### Prerequisites- Node.js version 18, 20, or 22 LTS- npm version 9 or higher- Git### 1. Clone the Repository```powershellgit clone https://github.com/karthik2004399/FoodHub-AWS-Cloud.gitcd FoodHub-AWS-Cloud```### 2. Install Dependencies```powershellnpm install```### 3. Configure Environment VariablesCopy `.env.example` to `.env`:```powershellCopy-Item .env.example .env```### 4. Run Locally**Option A: Frontend against Live AWS Cloud Backend**```powershellnpm run dev```Open [http://localhost:5173](http://localhost:5173) in your browser. All order requests will route to the live AWS API Gateway.**Option B: Full Local Stack (Frontend + Local Node Backend)**In Terminal 1 (Run Backend):```powershellnode backend/server.mjs```In Terminal 2 (Run Frontend):```powershellnpm run dev```---## 8. GitHub Actions CI/CD & OIDC SecurityThe CI/CD pipeline (`.github/workflows/deploy.yml`) automates deployment on pushes to `main`. It uses **AWS OpenID Connect (OIDC)**, eliminating long-lived AWS Access Keys.### Why OIDC Over Static Keys?- **Zero Secrets to Leak:** No `AWS_ACCESS_KEY_ID` or `AWS_SECRET_ACCESS_KEY` are stored in GitHub repository secrets.- **Short-Lived Credentials:** AWS STS generates temporary credentials valid for 1 hour.- **Cryptographic Subject Validation:** The IAM role trust policy matches the repository's immutable identity (`repo:karthik2004399@178548397/FoodHub-AWS-Cloud@1418615809:ref:refs/heads/main`).---## 9. Security & Architecture Best Practices Implemented1. **Server-Side Price Authority:** The frontend displays prices, but `FoodHubCreateOrder` recalculates subtotals from an authoritative server-side price map. Malicious payloads modifying item prices are ignored.2. **Input Validation:** Strict regular expressions validate customer phone numbers (10 digits) and postal codes (6 digits), preventing injection and malformed entries.3. **S3 Deployment Cleanliness:** The deployment command `aws s3 sync dist/ s3://bucket --delete` purges stale asset hashes from older releases.4. **Resilient Frontend Architecture:** If network interruptions occur, `Menu.jsx` provides fallback static catalog rendering, ensuring the user interface remains functional.---## 10. Current Limitations & Future Enhancements- **Demo Authentication:** `Login.jsx` is currently an in-memory demonstration interface. Future milestones can integrate **Amazon Cognito User Pools** for JWT-based auth and order history.- **Payment Processing:** Orders are created directly with status `Placed`. Future phases can integrate a payment gateway (e.g., Stripe, Razorpay) via AWS Lambda webhooks.- **Order Tracking:** Add a customer order tracking dashboard connected to a `GET /orders/{orderId}` Lambda endpoint.---## License & Author- **Developer:** Karthik Siri- **Coursework:** B.Tech Computer Science & Engineering (Cloud Computing & DevOps)- **Repository:** [https://github.com/karthik2004399/FoodHub-AWS-Cloud](https://github.com/karthik2004399/FoodHub-AWS-Cloud)
+# FoodHub – Cloud-Based Food Ordering Application
+
+[![AWS Serverless](https://img.shields.io/badge/AWS-Serverless-orange.svg?logo=amazon-aws)](https://aws.amazon.com/)
+[![React 19](https://img.shields.io/badge/React-19.2-61DAFB.svg?logo=react)](https://react.dev/)
+[![Vite](https://img.shields.io/badge/Bundler-Vite-646CFF.svg?logo=vite)](https://vitejs.dev/)
+[![Tailwind CSS](https://img.shields.io/badge/Styling-Tailwind_CSS-38B2AC.svg?logo=tailwind-css)](https://tailwindcss.com/)
+[![CI/CD](https://img.shields.io/badge/CI%2FCD-GitHub_Actions_OIDC-2088FF.svg?logo=github-actions)](https://github.com/features/actions)
+
+> **Website Name:** FoodHub
+> **Tagline:** *"Fresh Bites, Happy Moments."*
+> **Description:** Discover delicious meals, explore exciting flavours, and enjoy convenient food ordering with FoodHub.
+
+FoodHub is a cloud-native, full-stack food ordering platform built using **React.js (Vite)**, **Tailwind CSS**, and **Amazon Web Services (AWS)** serverless infrastructure. The platform features an end-to-end customer dining experience, role-based customer authentication, a dedicated Admin Dashboard, real-time dynamic menu and order management backed by **Amazon DynamoDB**, and automated continuous deployment via **GitHub Actions** with keyless **AWS OIDC federation**.
+
+---
+
+## 1. Project Architecture
+
+```
+[ End User / Mobile / Desktop Browser ]
+                  |
+                  v
+       Amazon CloudFront (CDN)
+       Distribution: E19KJACSDBYGC5
+       Domain: d2i0pdn8zaqggl.cloudfront.net
+                  |
+                  v
+       Amazon S3 (Private Static Web Bucket)
+       Bucket: foodhub-karthik-2026-0927
+                  |
+                  v
+       Amazon API Gateway (REST API: p58iopju3f)
+       Region: ap-south-1 (Mumbai)
+                  |
+  +---------------+---------------+--------------------+---------------------+
+  |               |               |                    |                     |
+GET /menu     POST /orders   POST /contact       /admin/menu/*        /admin/orders/*
+  |               |               |                    |                     |
+FoodHubGetMenu FoodHubCreateOrder FoodHubContact  FoodHubAdminMenu    FoodHubAdminOrders
+  |               |               |                    |                     |
+  +-------+-------+               |                    v                     v
+          |                       v             Amazon DynamoDB        Amazon DynamoDB
+          v                 [Support Log]         FoodHubMenu           FoodHubOrders
+   Amazon DynamoDB                               (PK: itemId)           (PK: orderId)
+   - FoodHubMenu (PK: itemId)
+   - FoodHubOrders (PK: orderId)
+```
+
+---
+
+## 2. Key Features
+
+### A. Customer Website Pages
+- **Home Page:**
+  - Hero carousel featuring mouth-watering food photography and rapid 30-minute delivery badges.
+  - Interactive Category selector ("What are you craving?").
+  - Popular Dishes showcase.
+  - "Why Choose FoodHub" section and verified customer testimonials.
+  - Comprehensive Footer with branding, quick links, and cloud kitchen details.
+- **Dedicated Menu Page (`/menu`):**
+  - Live search across dish names, ingredients, and categories.
+  - Category pill filtering (All, Pizza, Burgers, Pasta, Asian, Desserts, Healthy).
+  - Real-time availability badges ("In Stock" vs "Sold Out").
+  - Unavailable dishes cannot be ordered.
+- **About Us Page (`/about`):**
+  - Our Story: Designed to make ordering delicious meals convenient and simple.
+  - Our Mission, Vision, and Core Values (Quality, Customer Satisfaction, Convenience, Reliability, Freshness).
+  - Highlights on transparent pricing and cloud uptime.
+- **Contact Us Page (`/contact`):**
+  - Contact form with client-side validation (Full Name, valid Email, 10-digit Phone, Subject, Message).
+  - Submits to backend Lambda handler `POST /contact`.
+  - Configurable official support channels: email (`contact@foodhub.com`), phone (`+91 98765 43210`), and kitchen address in Mumbai.
+- **Customer Authentication & Route Protection:**
+  - Guests can freely browse the menu catalog.
+  - Clicking "Add to Cart" as a guest redirects to the Login/Register page.
+  - Upon logging in, the previously clicked item is **automatically added to the cart**.
+  - Protected checkout flow ensures only authenticated users can place orders.
+  - Session persistence via structured local storage.
+
+### B. Admin Dashboard (`/admin`)
+- Accessible by logging in with administrator credentials (`admin@foodhub.com` or toggling the Admin tab).
+- **Sidebar Navigation:** Dashboard, Manage Menu, Add Food Item, Manage Orders, Customers, Logout.
+- **Dashboard Overview Metrics:**
+  - Total Food Items
+  - Available Items
+  - Unavailable / Out of Stock Items
+  - Total Orders
+  - Pending Orders
+  - Completed Orders
+- **Admin Menu Management:**
+  - Add Food Item (Name, Description, Category, Price, Image URL, Availability).
+  - Edit Food Item details and server-side prices.
+  - Quick Availability toggle (instantly reflects on customer menu).
+  - Delete Food Item with confirmation modal dialog.
+  - Search and filter inventory.
+- **Admin Order Management:**
+  - Live table of placed orders showing Order ID, Customer Name, Phone, Delivery Address, Items Breakdown, Subtotal, Delivery Fee, and Total.
+  - Status management dropdown: `Placed` → `Confirmed` → `Preparing` → `Out for Delivery` → `Delivered` → `Cancelled`.
+- **Customer Roster:**
+  - Automatically compiles registered diners and lifetime spend from DynamoDB order history.
+
+---
+
+## 3. Technology Stack & AWS Resources
+
+| Layer | Service / Technology | Details |
+| :--- | :--- | :--- |
+| **Frontend** | React 19, Vite 8, Tailwind CSS | Single-page application with responsive layouts |
+| **Hosting & CDN** | Amazon S3 + CloudFront | S3: `foodhub-karthik-2026-0927`<br>CloudFront: `E19KJACSDBYGC5`<br>Domain: `https://d2i0pdn8zaqggl.cloudfront.net` |
+| **API Management** | Amazon API Gateway | API: `FoodHub-Order-API` (`p58iopju3f`) in region `ap-south-1` |
+| **Serverless Compute** | AWS Lambda (Node.js 20+) | `FoodHubGetMenu`, `FoodHubCreateOrder`, `FoodHubAdminMenu`, `FoodHubAdminOrders`, `FoodHubContact` |
+| **Database** | Amazon DynamoDB | `FoodHubOrders` (PK: `orderId` String)<br>`FoodHubMenu` (PK: `itemId` String) |
+| **DevOps & CI/CD** | GitHub Actions & AWS OIDC | Passwordless role assumption: `FoodHubGitHubActionsRole` |
+
+---
+
+## 4. API Endpoint Specifications
+
+### Public Endpoints
+- `GET /menu`: Retrieves food dishes from `FoodHubMenu` (with fallback to default catalog).
+- `POST /orders`: Validates customer details, verifies item prices and availability server-side, calculates subtotal + ₹40 delivery fee, and stores order in `FoodHubOrders`.
+- `POST /contact`: Validates inquiry details and records customer support submissions.
+
+### Administrative Endpoints (Requires `Authorization: Bearer <admin-token>`)
+- `POST /admin/menu`: Adds a new food item to `FoodHubMenu`.
+- `PUT /admin/menu/{itemId}`: Updates item details, price, and availability in `FoodHubMenu`.
+- `DELETE /admin/menu/{itemId}`: Deletes an item from `FoodHubMenu`.
+- `GET /admin/orders`: Retrieves all customer orders from `FoodHubOrders`.
+- `PATCH /admin/orders/{orderId}`: Updates status (`Placed`, `Confirmed`, `Preparing`, `Out for Delivery`, `Delivered`, `Cancelled`) in `FoodHubOrders`.
+
+---
+
+## 5. Local Development & Testing Instructions
+
+### 1. Install Dependencies
+```powershell
+npm install
+```
+
+### 2. Run Local Automated Test Suite
+Executes 19 comprehensive automated tests verifying all Lambda handlers, error handling, price calculations, and admin authorization:
+```powershell
+npm test
+```
+
+### 3. Run ESLint Code Analysis
+```powershell
+npm run lint
+```
+
+### 4. Build Production Bundle
+```powershell
+npm run build
+```
+
+### 5. Run Local Full-Stack Server
+**Terminal 1 (Backend API on port 3000):**
+```powershell
+node backend/server.mjs
+```
+
+**Terminal 2 (Frontend with Vite HMR):**
+```powershell
+npm run dev
+```
+
+Open [http://localhost:5173](http://localhost:5173) in your browser.
+
+---
+
+## 6. AWS Console Deployment Guide
+
+To deploy the new DynamoDB table, API Gateway routes, and Lambda functions in your AWS Account (`576174294043` in `ap-south-1`):
+
+### Step 1: Create the `FoodHubMenu` DynamoDB Table
+1. Open the **Amazon DynamoDB Console** in `ap-south-1`.
+2. Click **Create table**.
+3. **Table name:** `FoodHubMenu`
+4. **Partition key:** `itemId` (Type: `String`).
+5. Table settings: **Default settings** (On-demand capacity).
+6. Click **Create table**.
+
+### Step 2: Update Lambda IAM Execution Permissions
+Ensure the Lambda execution role (e.g., `FoodHubCreateOrder-role-oze5rx3f`) has permission to access `FoodHubMenu`:
+Attach the following inline policy statement:
+```json
+{
+  "Effect": "Allow",
+  "Action": [
+    "dynamodb:GetItem",
+    "dynamodb:PutItem",
+    "dynamodb:UpdateItem",
+    "dynamodb:DeleteItem",
+    "dynamodb:Scan"
+  ],
+  "Resource": [
+    "arn:aws:dynamodb:ap-south-1:576174294043:table/FoodHubOrders",
+    "arn:aws:dynamodb:ap-south-1:576174294043:table/FoodHubMenu"
+  ]
+}
+```
+
+### Step 3: Deploy Backend Lambda Functions
+In the **AWS Lambda Console**:
+- **FoodHubGetMenu:** Upload `backend/menu.mjs` (Runtime: Node.js 20.x, Handler: `menu.handler`). Set environment variable `MENU_TABLE_NAME=FoodHubMenu`.
+- **FoodHubCreateOrder:** Upload `backend/order.mjs` and `backend/menu.mjs` (Runtime: Node.js 20.x, Handler: `order.handler`).
+- **FoodHubContact (Optional new Lambda):** Upload `backend/contact.mjs` (Handler: `contact.handler`).
+- **FoodHubAdminAPI (Optional new Lambda):** Upload `backend/adminMenu.mjs`, `backend/adminOrders.mjs`, and `backend/authHelper.mjs`.
+
+### Step 4: Configure API Gateway Routes & Enable CORS
+In the **Amazon API Gateway Console** (`FoodHub-Order-API`: `p58iopju3f`):
+1. **GET `/menu`** -> Integrate with `FoodHubGetMenu`.
+2. **POST `/orders`** -> Integrate with `FoodHubCreateOrder`.
+3. **POST `/contact`** -> Integrate with `FoodHubContact`.
+4. **`/admin/menu` & `/admin/orders`** -> Integrate with `FoodHubAdminAPI`.
+5. For each route, click **Enable CORS** (Allow Origin: `*`, Allow Headers: `Content-Type,Authorization`).
+6. Click **Deploy API** to deployment stage.
+
+### Step 5: Frontend Deployment to CloudFront/S3
+Push your commits to branch `main` on GitHub:
+```powershell
+git add .
+git commit -m "Upgrade FoodHub to complete cloud food ordering platform"
+git push origin main
+```
+The GitHub Actions workflow will automatically run `npm run lint`, compile production assets with `npm run build`, synchronize files to S3 bucket `foodhub-karthik-2026-0927`, and invalidate CloudFront distribution `E19KJACSDBYGC5`.
+
+---
+
+## 7. Developer & Academic Credentials
+- **Student Name:** Karthik Siri
+- **Degree:** B.Tech in Computer Science & Engineering (Cloud Computing & DevOps)
+- **Project Title:** FoodHub – Cloud-Based Food Ordering Application
+- **Repository:** [https://github.com/karthik2004399/FoodHub-AWS-Cloud](https://github.com/karthik2004399/FoodHub-AWS-Cloud)
